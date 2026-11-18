@@ -92,7 +92,7 @@ return {
             { icon = "\u{f0f6} ", key = "g", desc = "Find Text", action = ":lua Snacks.dashboard.pick('grep')" },
             { icon = "\u{f1da} ", key = "r", desc = "Recent Files", action = ":lua Snacks.dashboard.pick('recent')" },
             { icon = "\u{f013} ", key = "c", desc = "Config", action = ":lua Snacks.dashboard.pick('files', { cwd = vim.fn.stdpath('config') })" },
-            { icon = "\u{f53f} ", key = "t", desc = "Themes", action = ":lua require('nvchad.themes').open()" },
+            { icon = "\u{f03d8} ", key = "t", desc = "Themes", action = ":lua require('nvchad.themes').open()" },
             { icon = "\u{f021} ", key = "s", desc = "Restore Session", section = "session" },
             { icon = "\u{f08b} ", key = "q", desc = "Quit", action = ":qa" },
           },

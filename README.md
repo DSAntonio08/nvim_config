@@ -4,9 +4,28 @@ NvChad underneath, with a LazyVim-style layer on top. NvChad does the looks
 (themes, statusline, tabs, theme switcher); LazyVim's plugins and keymaps
 do the workflow.
 
+![start screen](screenshots/dashboard.png)
+
+| explorer | theme switcher |
+|---|---|
+| ![explorer](screenshots/explorer.png) | ![themes](screenshots/themes.png) |
+
+## Install
+
+```sh
+git clone https://github.com/DSAntonio08/nvim_config.git ~/.config/nvim
+~/.config/nvim/install.sh
+```
+
+Works on macOS (Homebrew), Debian/Ubuntu, Fedora and Arch. It installs
+neovim (>= 0.11), ripgrep, fd, lazygit, node, python, clangd/clang-format
+and a Nerd Font, then the plugins and any missing language servers/formatters
+(through Mason). Safe to run again.
+
 ```
 ~/.config/nvim/
 ├── init.lua              entry point, loads everything in order
+├── install.sh            installs the outside tools (see above)
 ├── lazy-lock.json        pinned plugin versions (written by lazy.nvim)
 └── lua/
     ├── chadrc.lua        the look: theme, transparency, statusline, picker style
