@@ -11,8 +11,21 @@ local function term_send(seq)
   end
 end
 
+-- global Normal bg. Don't use `link = false` here: that resolves through the
+-- hl namespace of the last drawn window, and while the theme picker is open
+-- that's the picker's Normal (volt's black2, still from the previous theme
+-- when NvThemeReload fires). That made the terminal bg lag one theme behind.
+local function normal_bg()
+  local hl = vim.api.nvim_get_hl(0, { name = "Normal" })
+  for _ = 1, 10 do
+    if not hl.link then break end
+    hl = vim.api.nvim_get_hl(0, { name = hl.link })
+  end
+  return hl.bg
+end
+
 local function sync_term_bg()
-  local bg = vim.api.nvim_get_hl(0, { name = "Normal", link = false }).bg
+  local bg = normal_bg()
   if bg then
     term_send(string.format("\027]11;#%06x\027\\", bg))
   end

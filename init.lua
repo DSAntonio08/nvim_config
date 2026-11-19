@@ -28,6 +28,10 @@ require("lazy").setup({
 
 -- load theme
 dofile(vim.g.base46_cache .. "defaults")
+-- Special/Function/Title/... : the start screen links to these. NvChad only
+-- loads them with treesitter (first real buffer), so without this the
+-- dashboard shows nvim's default turquoise until the theme picker runs.
+dofile(vim.g.base46_cache .. "syntax")
 dofile(vim.g.base46_cache .. "statusline")
 for _, name in ipairs(require("chadrc").base46.integrations or {}) do
   pcall(dofile, vim.g.base46_cache .. name)
