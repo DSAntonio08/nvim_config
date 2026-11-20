@@ -4,7 +4,8 @@
 #   git clone https://github.com/DSAntonio08/nvim_config.git ~/.config/nvim
 #   ~/.config/nvim/install.sh
 #
-# Supports macOS (Homebrew), Debian/Ubuntu (apt), Fedora (dnf), Arch (pacman).
+# Supports macOS (Homebrew), Debian/Ubuntu (apt), Fedora (dnf), Arch (pacman),
+# Gentoo (emerge).
 # Safe to run again; already installed stuff is skipped.
 #
 #   --dry-run   only print what would run
@@ -31,7 +32,7 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --no-font) WANT_FONT=0 ;;
-    -h | --help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 1 ;;
   esac
 done
@@ -50,7 +51,9 @@ run() {
 }
 
 SUDO=""
-if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
+if [ "$(id -u)" -ne 0 ]; then
+  if has sudo; then SUDO="sudo"; elif has doas; then SUDO="doas"; else SUDO="sudo"; fi
+fi
 
 # version_ge 0.11.2 0.11.0 -> true
 version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
@@ -89,6 +92,7 @@ elif [ "$OS" = Linux ] && [ -r /etc/os-release ]; then
   . /etc/os-release
   case " ${ID:-} ${ID_LIKE:-} " in
     *" arch "*) PM=pacman ;;
+    *" gentoo "*) PM=emerge ;;
     *" fedora "* | *" rhel "*) PM=dnf ;;
     *" debian "* | *" ubuntu "*) PM=apt ;;
     *) die "unsupported distro: ${PRETTY_NAME:-$ID}. Install by hand: neovim >= $NVIM_MIN, git, curl, unzip, a C compiler, ripgrep, fd, lazygit, node+npm, python3 (+venv), clangd, clang-format" ;;
@@ -129,6 +133,23 @@ case "$PM" in
     run $SUDO pacman -Syu --needed --noconfirm git curl unzip tar gzip xz base-devel \
       ripgrep fd lazygit nodejs npm python clang fontconfig neovim
     ;;
+  emerge)
+    # only emerge what's actually missing (compiling is slow); ripgrep, fd and
+    # lazygit come as prebuilt binaries from GitHub below, no root needed
+    atoms=()
+    for pair in git:dev-vcs/git curl:net-misc/curl unzip:app-arch/unzip xz:app-arch/xz-utils \
+      cc:sys-devel/gcc make:dev-build/make node:net-libs/nodejs npm:net-libs/nodejs \
+      python3:dev-lang/python clangd:llvm-core/clang clang-format:llvm-core/clang \
+      fc-list:media-libs/fontconfig; do
+      has "${pair%%:*}" || atoms+=("${pair#*:}")
+    done
+    if [ "${#atoms[@]}" -gt 0 ]; then
+      mapfile -t atoms < <(printf '%s\n' "${atoms[@]}" | sort -u)
+      run $SUDO emerge --ask=n --noreplace "${atoms[@]}"
+    else
+      ok "everything already there"
+    fi
+    ;;
 esac
 
 # --- neovim (distro packages are often too old) ---------------------------------------
@@ -151,19 +172,35 @@ else
   [ "$DRY_RUN" = 1 ] || ok "nvim $(nvim_version)"
 fi
 
-# --- lazygit fallback ---------------------------------------------------------------
+# --- ripgrep / fd / lazygit fallback (prebuilt binaries from GitHub) ------------------
 
-if ! has lazygit; then
-  step "Installing lazygit from GitHub"
+# gh_bin <owner/repo> <asset regex> <binary>
+gh_bin() {
+  local repo="$1" pattern="$2" bin="$3" url tmp
   if [ "$DRY_RUN" = 1 ]; then
-    run "download latest lazygit_<ver>_Linux_$ARCH.tar.gz to ~/.local/bin"
-  else
-    ver="$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')"
-    [ -n "$ver" ] || die "couldn't look up the latest lazygit version"
-    curl -fsSL "https://github.com/jesseduffield/lazygit/releases/download/v$ver/lazygit_${ver}_Linux_$ARCH.tar.gz" |
-      tar -xz -C "$LOCAL_BIN" lazygit
-    ok "lazygit $ver"
+    run "download latest $repo release matching '$pattern', put $bin in ~/.local/bin"
+    return
   fi
+  url="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" |
+    sed -n 's/.*"browser_download_url": *"\([^"]*\)".*/\1/p' | grep -iE "$pattern" | head -1 || true)"
+  [ -n "$url" ] || die "couldn't find a $bin download for $ARCH in $repo's latest release"
+  tmp="$(mktemp -d)"
+  curl -fsSL "$url" | tar -xz -C "$tmp"
+  find "$tmp" -type f -name "$bin" -exec install -m 755 {} "$LOCAL_BIN/$bin" \;
+  rm -rf "$tmp"
+  [ -x "$LOCAL_BIN/$bin" ] || die "$bin wasn't in $url"
+  ok "$bin -> $LOCAL_BIN/$bin"
+}
+
+if [ "$OS" = Linux ]; then
+  case "$ARCH" in
+    x86_64) rust_target="x86_64-unknown-linux-musl" ;;
+    arm64) rust_target="aarch64-unknown-linux-(musl|gnu)" ;;
+    *) rust_target="$ARCH-unknown-linux" ;;
+  esac
+  has rg || { step "Installing ripgrep from GitHub"; gh_bin BurntSushi/ripgrep "ripgrep-.*-$rust_target\.tar\.gz$" rg; }
+  has fd || { step "Installing fd from GitHub"; gh_bin sharkdp/fd "fd-.*-$rust_target\.tar\.gz$" fd; }
+  has lazygit || { step "Installing lazygit from GitHub"; gh_bin jesseduffield/lazygit "_Linux_$ARCH\.tar\.gz$" lazygit; }
 fi
 
 # --- nerd font (icons) ----------------------------------------------------------------
